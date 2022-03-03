@@ -5,8 +5,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.integrate import solve_ivp, solve_bvp
 
-from PyLGR import solve_ocp, utilities
-from PyLGR import legendre_gauss_radau as LGR
+from pylgr import solve_ocp, utilities
+from pylgr import legendre_gauss_radau as LGR
 
 from .test_data import example_problems
 

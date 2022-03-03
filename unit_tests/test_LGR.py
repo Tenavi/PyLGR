@@ -4,7 +4,7 @@ import os
 import numpy as np
 import scipy.io
 
-from PyLGR import legendre_gauss_radau as LGR
+from pylgr import legendre_gauss_radau as LGR
 
 TOL = 1e-10
 

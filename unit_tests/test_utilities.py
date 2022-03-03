@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from scipy.optimize._numdiff import approx_derivative
 
-from PyLGR import utilities
+from pylgr import utilities
 
 TOL = 1e-10
 
