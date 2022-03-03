@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Mac
+.DS_Store
+
+# Matlab
+*.m~
+
 # C extensions
 *.so
 
