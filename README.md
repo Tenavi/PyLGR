@@ -1,11 +1,17 @@
 # PyLGR
-A basic Python implementation of a Legendre-Gauss-Radau pseudospectral method for computational optimal control.
+A basic Python implementation of a Legendre-Gauss-Radau (LGR) pseudospectral (PS) method for computational optimal control.
 
-Tested with the following package dependencies:
+The code has been tested with the following package dependencies:
 
-scipy=1.4, numpy=1.16
+scipy=1.4.1, numpy=1.16.5
 
-See the following references for details on the approach:
+Other software versions may or may not work. The pytest test suite has been tested with the following additional dependencies:
+
+pytest=6.1.1, matplotlib=3.1.2
+
+Plotting can be enabled in test_solve.py inside each individual test function.
+
+See the following references for details on the LGR PS approach:
 
 [Fahroo, F. and Ross, I. M. "Pseudospectral Methods for Infinite-Horizon Optimal Control Problems," Journal of Guidance, Control, and Dynamics, Vol. 31, No. 4, July–Aug. 2008, pp. 927-936. doi: 10.2514/1.33117](https://doi.org/10.2514/1.33117)
 
