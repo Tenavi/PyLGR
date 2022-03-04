@@ -1,15 +1,30 @@
 # PyLGR
-A basic Python implementation of a Legendre-Gauss-Radau (LGR) pseudospectral (PS) method for computational optimal control.
+A basic Python implementation of a Legendre-Gauss-Radau (LGR) pseudospectral
+(PS) method for computational optimal control.
+
+--------------------------------------------------------------------------------
 
 The code has been tested with the following package dependencies:
 
-scipy=1.4.1, numpy=1.16.5
+scipy=1.4.1, numpy=1.16.5, pytest=6.1.1, matplotlib=3.1.2
 
-Other software versions may or may not work. The pytest test suite has been tested with the following additional dependencies:
+The code can be installed using the following command:
 
-pytest=6.1.1, matplotlib=3.1.2
+'pip install -e .'
+
+You can then import pylgr in any python script. The main function is
+'pylgr.solve_ocp'. Documentation can be accessed by the python command
+'help(pylgr.solve_ocp)'.
+
+--------------------------------------------------------------------------------
+
+The test suite can be run from the main directory with the command
+
+'pytest unit_tests -s -v'
 
 Plotting can be enabled in test_solve.py inside each individual test function.
+
+--------------------------------------------------------------------------------
 
 See the following references for details on the LGR PS approach:
 

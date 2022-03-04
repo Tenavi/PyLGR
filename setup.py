@@ -1,6 +1,5 @@
 import setuptools
 
-# To install in developer mode run "pip install -e ."
 with open("README.md", "r") as fh:
     long_description = fh.read()
 

@@ -198,7 +198,7 @@ def test_van_der_pol(order, solver, n_nodes):
 
 @pytest.mark.parametrize('order', ['C'])
 @pytest.mark.parametrize('solver', ['SLSQP'])
-@pytest.mark.parametrize('n_nodes', [11,32,48])
+@pytest.mark.parametrize('n_nodes', [11,32,40])
 def test_satellite(order, solver, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference solution obtained with an
