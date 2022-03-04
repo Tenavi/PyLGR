@@ -10,7 +10,6 @@ from pylgr import legendre_gauss_radau as LGR
 
 from .test_data import example_problems
 
-pytestmark = pytest.mark.parametrize('order', 'C')
 solver_tols = {'SLSQP': 1e-05, 'trust-constr': 1e-05}
 
 def _assert_converged(PS_sol, tol):
@@ -81,9 +80,10 @@ def _plot_results(t_ref, X_ref, U_ref, PS_sol, feas_sol, problem_name):
     plt.show()
 
 @pytest.mark.parametrize('U_max', [None,.25])
-@pytest.mark.parametrize('n_nodes', [11,16])
+@pytest.mark.parametrize('order', ['C','F'])
 @pytest.mark.parametrize('solver', solver_tols.keys())
-def test_LQR(U_max, order, n_nodes, solver):
+@pytest.mark.parametrize('n_nodes', [11,16])
+def test_LQR(U_max, order, solver, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference LQR solution with and
     without control saturation constraints.
@@ -140,11 +140,10 @@ def test_LQR(U_max, order, n_nodes, solver):
             t_opt, X_opt, U_opt, PS_sol, feas_sol, problem_name
         )
 
-@pytest.mark.parametrize(
-    'solver,n_nodes',
-    [('trust-constr', 11), ('SLSQP', 11), ('SLSQP', 32)]
-)
-def test_van_der_pol(order, n_nodes, solver):
+@pytest.mark.parametrize('order', ['C'])
+@pytest.mark.parametrize('solver', ['SLSQP'])
+@pytest.mark.parametrize('n_nodes', [11,32])
+def test_van_der_pol(order, solver, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference solution obtained with an
     indirect method.
@@ -197,11 +196,10 @@ def test_van_der_pol(order, n_nodes, solver):
             t_opt, X_opt, U_opt, PS_sol, feas_sol, 'Van der Pol'
         )
 
-@pytest.mark.parametrize(
-    'solver,n_nodes',
-    [('trust-constr', 11), ('SLSQP', 11), ('SLSQP', 32), ('SLSQP', 40)]
-)
-def test_satellite(order, n_nodes, solver):
+@pytest.mark.parametrize('order', ['C'])
+@pytest.mark.parametrize('solver', ['SLSQP'])
+@pytest.mark.parametrize('n_nodes', [11,32,48])
+def test_satellite(order, solver, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference solution obtained with an
     indirect method.

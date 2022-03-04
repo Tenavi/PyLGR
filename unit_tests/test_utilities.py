@@ -37,7 +37,13 @@ def test_time_map():
     tau = utilities.time_map(t_orig)
     t = utilities.invert_time_map(tau)
     assert np.allclose(t, t_orig)
-    assert np.allclose(tau, (t - 1.)/(t + 1.))
+
+    r = utilities.deriv_time_map(tau)
+    for k in range(tau.shape[0]):
+        r_num = approx_derivative(
+            utilities.invert_time_map, tau[k], method='cs'
+        )
+        assert(np.isclose(r[k], r_num))
 
 @pytest.mark.parametrize('n', [10,15])
 @pytest.mark.parametrize('d', [1,2])
