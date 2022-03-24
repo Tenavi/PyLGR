@@ -113,7 +113,7 @@ def test_LQR(U_max, order, solver, n_nodes):
     PS_sol = solve_ocp(
         OCP.dynamics, OCP.running_cost, t_LQR, X_LQR, U_LQR,
         U_lb=OCP.U_lb, U_ub=OCP.U_ub, n_nodes=n_nodes,
-        cost_jac=OCP.running_cost_gradient, tol=tol, maxiter=10000,
+        cost_grad=OCP.running_cost_gradient, tol=tol, maxiter=10000,
         reshape_order=order, solver=solver, verbose=verbose
     )
 
@@ -172,7 +172,7 @@ def test_van_der_pol(order, solver, n_nodes):
     PS_sol = solve_ocp(
         OCP.dynamics, OCP.running_cost, t_LQR, X_LQR, U_LQR,
         U_lb=OCP.U_lb, U_ub=OCP.U_ub, n_nodes=n_nodes,
-        cost_jac=OCP.running_cost_gradient, tol=tol, maxiter=10000,
+        cost_grad=OCP.running_cost_gradient, tol=tol, maxiter=10000,
         reshape_order=order, solver=solver, verbose=verbose
     )
 
@@ -236,7 +236,7 @@ def test_satellite(order, solver, n_nodes):
     PS_sol = solve_ocp(
         OCP.dynamics, OCP.running_cost, t_LQR, X_LQR, U_LQR,
         U_lb=OCP.U_lb, U_ub=OCP.U_ub, n_nodes=n_nodes, tol=tol, maxiter=10000,
-        cost_jac=OCP.running_cost_gradient,
+        cost_grad=OCP.running_cost_gradient,
         reshape_order=order, solver=solver, verbose=verbose
     )
 

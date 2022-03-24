@@ -138,8 +138,8 @@ def make_reshaping_funs(n_states, n_controls, n_nodes, order='C'):
     return collect_vars, separate_vars
 
 def make_dynamic_constraint(
-        dynamics, D, n_states, n_controls, separate_vars, order='C',
-        finite_diff_method='2-point'
+        dynamics, D, n_states, n_controls, separate_vars, jac='2-point',
+        order='C'
     ):
     '''
     Create a function to evaluate the dynamic constraint DX - F(X,U) = 0 and its
@@ -161,11 +161,16 @@ def make_dynamic_constraint(
         Function which returns X, U = separate_vars(XU), where XU
         is an ((n_states+n_controls)*n_nodes,) array, X is an
         (n_states, n_nodes) array, and U is an (n_controls, n_nodes) array.
+    jac : {callable, '3-point', '2-point', 'cs'}, default='2-point'
+        Jacobian of the dynamics dXdt=F(X,U) with respect to states X and
+        controls U. If callable, function dynamics_jac should take two arguments
+        X and U with respective shapes (n_states, n_nodes) and
+        (n_controls, n_nodes), and return a tuple of Jacobian arrays
+        (dF/dX, dF/dU) with respective shapes (n_states, n_states, n_nodes) and
+        (n_states, n_controls, n_nodes). Other string options specify the finite
+        difference methods to use if the analytical Jacobian is not available.
     order : {'C', 'F'}, default='C'
         Use C ('C', row-major) or Fortran ('F', column-major) ordering.
-    finite_diff_method : {'3-point', '2-point', 'cs'}, default='2-point'
-        Finite difference method to use for nonlinear parts of the constraint
-        Jacobian.
 
     Returns
     -------
@@ -208,14 +213,14 @@ def make_dynamic_constraint(
     linear_constr.eliminate_zeros()
     sparsity.eliminate_zeros()
 
-    # Dynamic constraint function evaluates to 0 when X, U is feasible
+    # Dynamic constraint function evaluates to 0 when (X, U) is feasible
     def constr_fun(XU):
         X, U = separate_vars(XU)
         F = dynamics(X, U)
         DX = np.matmul(X, DT)
         return (DX - F).flatten(order=order)
 
-    # For taking the Jacobian we just use the diagonal part of the D matrix
+    # The nonlinear part of Jacobian only uses the diagonal part of the D matrix
     def diag_constr_fun(XU):
         X, U = separate_vars(XU)
         F = dynamics(X, U)
@@ -225,7 +230,7 @@ def make_dynamic_constraint(
     def constr_Jac(XU):
         # Compute nonlinear components with finite differences
         Jac = optimize._numdiff.approx_derivative(
-            diag_constr_fun, XU, sparsity=sparsity, method=finite_diff_method
+            diag_constr_fun, XU, sparsity=sparsity, method=jac
         )
         return Jac + linear_constr
 

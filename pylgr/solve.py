@@ -34,8 +34,8 @@ class DirectSolution:
 
 def solve_ocp(
         dynamics, cost_fun, t_guess, X_guess, U_guess, U_lb=None, U_ub=None,
-        n_nodes=16, tol=1e-06, maxiter=1000, cost_jac='2-point',
-        cost_hess='2-point', constr_finite_diff_method='2-point',
+        dynamics_jac='2-point', cost_grad='2-point', cost_hess='2-point',
+        n_nodes=32, tol=1e-06, maxiter=1000,
         solver='SLSQP', solver_options={}, reshape_order='C', verbose=0
     ):
     '''Solve an open loop OCP by LGR pseudospectral method.
@@ -58,28 +58,34 @@ def solve_ocp(
         Lower bounds for the controls.
     U_ub : (n_controls,1) array, optional
         Upper bounds for the controls.
-    n_nodes : int, default=16
-        Number of LGR points for collocating time.
-    tol : float, default=1e-06
-        Tolerance for termination.
-    maxiter : int, default=1000
-        Maximum number of iterations to perform.
-    cost_jac : {callable, '3-point', '2-point', 'cs', bool}, default='2-point'
-        Gradients of the running cost with respect to X and U. If callable,
-        cost_jac should take two arguments X and U with respective shapes
+    dynamics_jac : {callable, '3-point', '2-point', 'cs'}, default='2-point'
+        Jacobian of the dynamics dXdt=F(X,U) with respect to states X and
+        controls U. If callable, function dynamics_jac should take two arguments
+        X and U with respective shapes (n_states, n_nodes) and
+        (n_controls, n_nodes), and return a tuple of Jacobian arrays
+        (dF/dX, dF/dU) with respective shapes (n_states, n_states, n_nodes) and
+        (n_states, n_controls, n_nodes). Other string options specify the finite
+        difference methods to use if the analytical Jacobian is not available.
+    cost_grad : {callable, '3-point', '2-point', 'cs', bool}, default='2-point'
+        Gradients of the running cost L with respect to X and U. If callable,
+        cost_grad should take two arguments X and U with respective shapes
         (n_states, n_nodes) and (n_controls, n_nodes), and return dL/dX and
-        dL/dU with the same shapes. If cost_jac=True, then assume that cost_fun
+        dL/dU with the same shapes. If cost_grad=True, then assume that cost_fun
         returns the gradients in addition to the running cost. String options
         specify finite difference methods.
     cost_hess : {'3-point', '2-point', 'cs', 'BFGS', 'SR1'}, default='2-point'
         Only used if solver='trust-constr'. Method for calculating the Hessian
         of the running cost by finite difference methods or a method from
         scipy.optimize.HessianUpdateStrategy. If a finite difference method is
-        selected but cost_jac is already uses finite differences, defaults to
-        'SR1' instead.
-    constr_finite_diff_method : {'3-point', '2-point', 'cs'}, default='2-point'
-        Finite difference method to use for nonlinear parts of the constraint
-        Jacobian.
+        selected but cost_grad is already uses finite differences, defaults to
+        'SR1' instead. Analytical (callable) Hessian is currently not
+        implemented.
+    n_nodes : int, default=32
+        Number of LGR points for collocating time.
+    tol : float, default=1e-06
+        Tolerance for termination.
+    maxiter : int, default=1000
+        Maximum number of iterations to perform.
     solver : str, default='SLSQP'
         Nonlinear programming algorithm. Options are 'SLSQP' and 'trust-constr'.
         See scipy.optimize.minimize for details.
@@ -88,7 +94,7 @@ def solve_ocp(
         details.
     reshape_order : {'C', 'F'}, default='C'
         Use C ('C', row-major) or Fortran ('F', column-major) ordering for the
-        NLP decision variables. This setting can affect performance.
+        NLP decision variables. This setting can slightly affect performance.
     verbose : {0, 1, 2}, optional
         Level of algorithm's verbosity:
             * 0 (default) : work silently.
@@ -157,16 +163,16 @@ def solve_ocp(
         return np.sum(L * w)
 
     # Wrap running cost gradient
-    if callable(cost_jac):
+    if callable(cost_grad):
         def jac(XU):
             X, U = separate_vars(XU)
-            dLdX, dLdU = cost_jac(X, U)
+            dLdX, dLdU = cost_grad(X, U)
             return collect_vars(dLdX * w, dLdU * w)
 
         if cost_hess in ['BFGS', 'SR1']:
             cost_hess = getattr(optimize, cost_hess)()
     else:
-        jac = cost_jac
+        jac = cost_grad
         # Not allowed to combine finite difference Hessian and Jacobian
         if cost_hess in ['3-point', '2-point', 'cs']:
             cost_hess = optimize.SR1()
@@ -177,8 +183,8 @@ def solve_ocp(
         hess = cost_hess
 
     dyn_constr = utilities.make_dynamic_constraint(
-        dynamics, D, n_x, n_u, separate_vars, order=reshape_order,
-        finite_diff_method=constr_finite_diff_method
+        dynamics, D, n_x, n_u, separate_vars, jac=dynamics_jac,
+        order=reshape_order
     )
     init_cond_constr = utilities.make_initial_condition_constraint(
         X0, n_u, n_nodes, order=reshape_order

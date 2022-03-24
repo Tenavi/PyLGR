@@ -155,8 +155,7 @@ def test_dynamics_setup_Jacobian(n_nodes, order):
     dXdt = _generate_nonlinear_dynamics(n_x, n_u)
 
     constr = utilities.make_dynamic_constraint(
-        dXdt, D, n_x, n_u, separate_vars, order=order,
-        finite_diff_method='3-point'
+        dXdt, D, n_x, n_u, separate_vars, jac='3-point', order=order
     )
 
     constr_Jac = constr.jac(XU)
