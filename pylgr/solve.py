@@ -1,29 +1,45 @@
 import numpy as np
 import warnings
-from scipy.interpolate import BarycentricInterpolator
 from scipy import optimize
+from scipy.interpolate import BarycentricInterpolator
+from scipy.integrate import solve_ivp
 
 from .legendre_gauss_radau import make_LGR
 from . import utilities
 
 class LagrangeInterpolator(BarycentricInterpolator):
+    def __init__(self, tau, Y, lb=None, ub=None):
+        super().__init__(xi=tau, yi=Y, axis=1)
+        self.lb, self.ub = lb, ub
+
     def __call__(self, t):
-        return super().__call__(utilities.time_map(t))
+        Y = super().__call__(utilities.time_map(t))
+        if self.lb is not None or self.ub is not None:
+            if Y.ndim < 2:
+                Y = Y.reshape(-1,1)
+            Y = np.squeeze(np.clip(Y, self.lb, self.ub))
+        return Y
 
 class DirectSolution:
-    def __init__(self, NLP_res, tau, dynamic_constr, order, separate_vars):
+    def __init__(
+            self, NLP_res, tau, running_cost, dynamic_constr, U_lb, U_ub,
+            order, separate_vars
+        ):
         self.NLP_res = NLP_res
         self._separate_vars = separate_vars
+        self._running_cost = running_cost
 
         self.success = NLP_res.success
         self.status = NLP_res.status
         self.message = NLP_res.message
 
         self.t = utilities.invert_time_map(tau)
+
         self.X, self.U = separate_vars(NLP_res.x)
-        self.sol_X = LagrangeInterpolator(tau, self.X, axis=1)
-        self.sol_U = LagrangeInterpolator(tau, self.U, axis=1)
-        self.V = NLP_res.fun
+        self.sol_X = LagrangeInterpolator(tau, self.X)
+        self.sol_U = LagrangeInterpolator(tau, self.U, U_lb, U_ub)
+
+        self.V = self.sol_V(self.t)
 
         if hasattr(NLP_res, 'constr'):
             self.residuals = NLP_res.constr[0]
@@ -32,10 +48,24 @@ class DirectSolution:
         self.residuals = self.residuals.reshape(self.X.shape, order=order)
         self.residuals = np.max(np.abs(self.residuals), axis=0)
 
+    def _cost_dynamics(self, t, J):
+        X = self.sol_X(t)
+        U = self.sol_U(t)
+        return self._running_cost(X, U)
+
+    def sol_V(self, t_eval):
+        t_eval = np.sort(t_eval)
+        t1 = np.maximum(self.t[-1], t_eval[-1])
+
+        sol = solve_ivp(
+            self._cost_dynamics, [0., t1], np.zeros(1), t_eval=t_eval
+        )
+        return sol.y.flatten()[-1] - sol.y
+
 def solve_ocp(
         dynamics, cost_fun, t_guess, X_guess, U_guess, U_lb=None, U_ub=None,
         dynamics_jac='2-point', cost_grad='2-point', cost_hess='2-point',
-        n_nodes=32, tol=1e-06, maxiter=1000,
+        n_nodes=32, tol=1e-07, maxiter=1000,
         solver='SLSQP', solver_options={}, reshape_order='C', verbose=0
     ):
     '''Solve an open loop OCP by LGR pseudospectral method.
@@ -82,7 +112,7 @@ def solve_ocp(
         implemented.
     n_nodes : int, default=32
         Number of LGR points for collocating time.
-    tol : float, default=1e-06
+    tol : float, default=1e-07
         Tolerance for termination.
     maxiter : int, default=1000
         Maximum number of iterations to perform.
@@ -95,7 +125,7 @@ def solve_ocp(
     reshape_order : {'C', 'F'}, default='C'
         Use C ('C', row-major) or Fortran ('F', column-major) ordering for the
         NLP decision variables. This setting can slightly affect performance.
-    verbose : {0, 1, 2}, optional
+    verbose : {0, 1, 2}, default=0
         Level of algorithm's verbosity:
             * 0 (default) : work silently.
             * 1 : display a termination report.
@@ -210,6 +240,10 @@ def solve_ocp(
             options=options
         )
 
+    if verbose:
+        print('Number of LGR nodes:', n_nodes)
+
     return DirectSolution(
-        NLP_res, tau, dyn_constr, reshape_order, separate_vars
+        NLP_res, tau, cost_fun, dyn_constr, U_lb, U_ub,
+        reshape_order, separate_vars
     )

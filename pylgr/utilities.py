@@ -227,6 +227,9 @@ def make_dynamic_constraint(
         DX = X * D_diag
         return (DX - F).flatten(order=order)
 
+    if callable(jac):
+        jac = '2-point'
+
     def constr_Jac(XU):
         # Compute nonlinear components with finite differences
         Jac = optimize._numdiff.approx_derivative(
