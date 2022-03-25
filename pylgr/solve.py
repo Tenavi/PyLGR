@@ -48,19 +48,18 @@ class DirectSolution:
         self.residuals = self.residuals.reshape(self.X.shape, order=order)
         self.residuals = np.max(np.abs(self.residuals), axis=0)
 
-    def _cost_dynamics(self, t, J):
+    def _value_dynamics(self, t, J):
         X = self.sol_X(t)
         U = self.sol_U(t)
-        return self._running_cost(X, U)
+        return -self._running_cost(X, U)
 
     def sol_V(self, t_eval):
         t_eval = np.sort(t_eval)
         t1 = np.maximum(self.t[-1], t_eval[-1])
 
-        sol = solve_ivp(
-            self._cost_dynamics, [0., t1], np.zeros(1), t_eval=t_eval
-        )
-        return sol.y.flatten()[-1] - sol.y
+        V0 = np.reshape(self.NLP_res.fun, (1,))
+        sol = solve_ivp(self._value_dynamics, [0., t1], V0, t_eval=t_eval)
+        return sol.y
 
 def solve_ocp(
         dynamics, cost_fun, t_guess, X_guess, U_guess, U_lb=None, U_ub=None,
@@ -228,6 +227,10 @@ def solve_ocp(
         if not verbose:
             warnings.filterwarnings("ignore", category=optimize.OptimizeWarning)
 
+        if verbose:
+            print('\nNumber of LGR nodes: %d' % n_nodes)
+            print('---------------------------------------------')
+
         NLP_res = optimize.minimize(
             fun=cost_fun_wrapper,
             x0=collect_vars(X_guess, U_guess),
@@ -239,9 +242,6 @@ def solve_ocp(
             hess=hess,
             options=options
         )
-
-    if verbose:
-        print('Number of LGR nodes:', n_nodes)
 
     return DirectSolution(
         NLP_res, tau, cost_fun, dyn_constr, U_lb, U_ub,
