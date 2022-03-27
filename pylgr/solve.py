@@ -213,7 +213,6 @@ def solve_ocp(
             method='SLSQP',
             tol=tol,
             jac=jac,
-            hess=hess,
             options=options
         )
 
