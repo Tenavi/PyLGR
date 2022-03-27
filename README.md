@@ -1,6 +1,10 @@
 # PyLGR
+
 A basic Python implementation of a Legendre-Gauss-Radau (LGR) pseudospectral
-(PS) method for computational optimal control.
+(PS) method for infinite horizon computational optimal control. The optimal
+control problem (OCP) is collocated in time at LGR points, turning it into a
+constrained nonlinear programming problem which we solve with sequential least
+squares quadratic programming (SLSQP).
 
 --------------------------------------------------------------------------------
 

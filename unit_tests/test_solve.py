@@ -10,8 +10,6 @@ from pylgr import legendre_gauss_radau as LGR
 
 from .test_data import example_problems
 
-solver_tols = {'SLSQP': 1e-05, 'trust-constr': 1e-05}
-
 def _assert_converged(PS_sol, tol):
     assert PS_sol.success
     assert PS_sol.residuals.max() < tol
@@ -81,14 +79,13 @@ def _plot_results(t_ref, X_ref, U_ref, PS_sol, feas_sol, problem_name):
 
 @pytest.mark.parametrize('U_max', [None,.25])
 @pytest.mark.parametrize('order', ['C','F'])
-@pytest.mark.parametrize('solver', solver_tols.keys())
-@pytest.mark.parametrize('n_nodes', [13,16])
-def test_LQR(U_max, order, solver, n_nodes):
+@pytest.mark.parametrize('n_nodes', [11,16])
+def test_LQR(U_max, order, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference LQR solution with and
     without control saturation constraints.
     '''
-    tol = solver_tols[solver]
+    tol = 1e-05
     plot_sims = False
     verbose = 0
     n_x, n_u, n_t = 3, 2, n_nodes
@@ -112,9 +109,10 @@ def test_LQR(U_max, order, solver, n_nodes):
 
     PS_sol = solve_ocp(
         OCP.dynamics, OCP.running_cost, t_LQR, X_LQR, U_LQR,
-        U_lb=OCP.U_lb, U_ub=OCP.U_ub, n_nodes=n_nodes,
-        cost_grad=OCP.running_cost_gradient, tol=tol, maxiter=10000,
-        reshape_order=order, solver=solver, verbose=verbose
+        U_lb=OCP.U_lb, U_ub=OCP.U_ub,
+        dynamics_jac=OCP.jacobians, cost_grad=OCP.running_cost_gradient,
+        n_nodes=n_nodes, tol=tol, maxiter=10000,
+        reshape_order=order, verbose=verbose
     )
 
     print(
@@ -141,14 +139,13 @@ def test_LQR(U_max, order, solver, n_nodes):
         )
 
 @pytest.mark.parametrize('order', ['C'])
-@pytest.mark.parametrize('solver', ['SLSQP'])
-@pytest.mark.parametrize('n_nodes', [13,32])
-def test_van_der_pol(order, solver, n_nodes):
+@pytest.mark.parametrize('n_nodes', [11,32])
+def test_van_der_pol(order, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference solution obtained with an
     indirect method.
     '''
-    tol = solver_tols[solver]
+    tol = 1e-05
     plot_sims = False
     verbose = 0
 
@@ -171,9 +168,10 @@ def test_van_der_pol(order, solver, n_nodes):
 
     PS_sol = solve_ocp(
         OCP.dynamics, OCP.running_cost, t_LQR, X_LQR, U_LQR,
-        U_lb=OCP.U_lb, U_ub=OCP.U_ub, n_nodes=n_nodes,
-        cost_grad=OCP.running_cost_gradient, tol=tol, maxiter=10000,
-        reshape_order=order, solver=solver, verbose=verbose
+        U_lb=OCP.U_lb, U_ub=OCP.U_ub,
+        dynamics_jac=OCP.jacobians, cost_grad=OCP.running_cost_gradient,
+        n_nodes=n_nodes, tol=tol, maxiter=10000,
+        reshape_order=order, verbose=verbose
     )
 
     print(
@@ -198,14 +196,13 @@ def test_van_der_pol(order, solver, n_nodes):
         )
 
 @pytest.mark.parametrize('order', ['C'])
-@pytest.mark.parametrize('solver', ['SLSQP'])
 @pytest.mark.parametrize('n_nodes', [11,32,40])
-def test_satellite(order, solver, n_nodes):
+def test_satellite(order, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference solution obtained with an
     indirect method.
     '''
-    tol = solver_tols[solver]
+    tol = 1e-05
     plot_sims = False
     verbose = 0
 
@@ -236,9 +233,10 @@ def test_satellite(order, solver, n_nodes):
 
     PS_sol = solve_ocp(
         OCP.dynamics, OCP.running_cost, t_LQR, X_LQR, U_LQR,
-        U_lb=OCP.U_lb, U_ub=OCP.U_ub, n_nodes=n_nodes, tol=tol, maxiter=10000,
-        cost_grad=OCP.running_cost_gradient,
-        reshape_order=order, solver=solver, verbose=verbose
+        U_lb=OCP.U_lb, U_ub=OCP.U_ub,
+        dynamics_jac=OCP.jacobians, cost_grad=OCP.running_cost_gradient,
+        n_nodes=n_nodes, tol=tol, maxiter=10000,
+        reshape_order=order, verbose=verbose
     )
 
     print(

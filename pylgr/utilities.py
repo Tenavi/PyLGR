@@ -179,39 +179,7 @@ def make_dynamic_constraint(
         function and its sparse Jacobian.
     '''
     n_nodes = D.shape[0]
-
-    D_diag = np.diag(D)
-    D_off_diag = D - np.diag(D_diag)
-    D_diag = D_diag.reshape(1,-1)
     DT = D.T
-
-    # Generates sparsity structure
-    if order == 'C':
-        # Linear component
-        linear_constr = sparse.kron(np.identity(n_states), D_off_diag)
-
-        # Nonlinear component
-        sparsity = np.tile(
-            np.identity(n_nodes), (n_states, n_states+n_controls)
-        )
-        sparsity = sparse.csr_matrix(sparsity)
-    elif order == 'F':
-        # Linear component
-        linear_constr = sparse.kron(D_off_diag, np.identity(n_states))
-
-        # Nonlinear component
-        sparsity = sparse.hstack((
-            sparse.block_diag([np.ones((n_states, n_states))]*n_nodes),
-            sparse.block_diag([np.ones((n_states, n_controls))]*n_nodes)
-        ))
-    else:
-        raise ValueError(_order_err_msg)
-
-    linear_constr = sparse.hstack((
-        linear_constr, np.zeros((n_states*n_nodes, n_controls*n_nodes))
-    ))
-    linear_constr.eliminate_zeros()
-    sparsity.eliminate_zeros()
 
     # Dynamic constraint function evaluates to 0 when (X, U) is feasible
     def constr_fun(XU):
@@ -220,25 +188,74 @@ def make_dynamic_constraint(
         DX = np.matmul(X, DT)
         return (DX - F).flatten(order=order)
 
-    # The nonlinear part of Jacobian only uses the diagonal part of the D matrix
-    def diag_constr_fun(XU):
-        X, U = separate_vars(XU)
-        F = dynamics(X, U)
-        DX = X * D_diag
-        return (DX - F).flatten(order=order)
+    # Generates linear component of Jacobian
+    if order == 'C':
+        linear_constr = sparse.kron(sparse.identity(n_states), D)
+    elif order == 'F':
+        linear_constr = sparse.kron(D, sparse.identity(n_states))
+    else:
+        raise ValueError(_order_err_msg)
 
+    linear_constr = sparse.hstack((
+        linear_constr, np.zeros((n_states*n_nodes, n_controls*n_nodes))
+    ))
+
+    # Make constraint Jacobian function by summing linear and nonlinear parts
     if callable(jac):
-        jac = '2-point'
+        def constr_jac(XU):
+            X, U = separate_vars(XU)
+            dFdX, dFdU = jac(X, U)
 
-    def constr_Jac(XU):
-        # Compute nonlinear components with finite differences
-        Jac = optimize._numdiff.approx_derivative(
-            diag_constr_fun, XU, sparsity=sparsity, method=jac
-        )
-        return Jac + linear_constr
+            if order == 'C':
+                dFdX = sparse.vstack([
+                    sparse.diags(
+                        diagonals=-dFdX[i],
+                        offsets=range(0, n_nodes*n_states, n_nodes),
+                        shape=(n_nodes, n_nodes*n_states)
+                    ) for i in range(n_states)
+                ])
+                dFdU = sparse.vstack([
+                    sparse.diags(
+                        diagonals=-dFdU[i],
+                        offsets=range(0, n_nodes*n_controls, n_nodes),
+                        shape=(n_nodes, n_nodes*n_controls)
+                    ) for i in range(n_states)
+                ])
+            elif order == 'F':
+                dFdX = np.transpose(dFdX, (2,0,1))
+                dFdU = np.transpose(dFdU, (2,0,1))
+                dFdX = sparse.block_diag(-dFdX)
+                dFdU = sparse.block_diag(-dFdU)
+
+            Jac = sparse.hstack((dFdX, dFdU))
+
+            return Jac + linear_constr
+    else:
+        # Generate sparsity structure for finite differences
+        if order == 'C':
+            sparsity = sparse.identity(n_nodes)
+            sparsity = sparse.hstack([sparsity]*(n_states + n_controls))
+            sparsity = sparse.vstack([sparsity]*n_states)
+        elif order == 'F':
+            sparsity = sparse.hstack((
+                sparse.block_diag([np.ones((n_states, n_states))]*n_nodes),
+                sparse.block_diag([np.ones((n_states, n_controls))]*n_nodes)
+            ))
+
+        def nonlinear_constr_fun(XU):
+            X, U = separate_vars(XU)
+            F = dynamics(X, U)
+            return -F.flatten(order=order)
+
+        def constr_jac(XU):
+            # Compute nonlinear components with finite differences
+            Jac = optimize._numdiff.approx_derivative(
+                nonlinear_constr_fun, XU, sparsity=sparsity, method=jac
+            )
+            return Jac + linear_constr
 
     return optimize.NonlinearConstraint(
-        fun=constr_fun, jac=constr_Jac, lb=0., ub=0.
+        fun=constr_fun, jac=constr_jac, lb=0., ub=0.
     )
 
 def make_initial_condition_constraint(X0, n_controls, n_nodes, order='C'):

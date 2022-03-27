@@ -11,6 +11,15 @@ def saturate(U, U_lb, U_ub):
 
     return U
 
+def cross_product_matrix(w):
+    zeros = np.zeros_like(w[0])
+    wx = np.array([
+        [zeros, -w[2], w[1]],
+        [w[2], zeros, -w[0]],
+        [-w[1], w[0], zeros]]
+    )
+    return wx
+
 class TemplateOCP:
     '''Defines an optimal control problem (OCP).
 
@@ -183,32 +192,6 @@ class TemplateOCP:
         dLdU = approx_derivative(lambda U: self.running_cost(X, U), U, f0=L)
         return dLdX, dLdU
 
-    def Hamiltonian(self, X, U, dVdX):
-        '''
-        Evaluate the Pontryagin Hamiltonian,
-        H(X,U,dVdX) = L(X,U) + [dVdX.T] F(X,U), where L(X,U) is the running
-        cost, dVdX is the costate or value gradient, and F(X,U) is the dynamics.
-        A necessary condition for optimality is that H(X,U,dVdX) ~ 0 for the
-        whole trajectory.
-
-        Parameters
-        ----------
-        X : (n_states,) or (n_states, n_points) array
-            State(s) arranged by (dimension, time).
-        U : (n_controls,) or (n_controls, n_points) array
-            Control(s) arranged by (dimension, time).
-        dVdX : (n_states,) or (n_states, n_points) array
-            Value gradient dV/dX (X,U) evaluated at pair(s) (X,U).
-
-        Returns
-        -------
-        H : (1,) or (n_points,) array
-            Pontryagin Hamiltonian each each point in time.
-        '''
-        L = self.running_cost(X, U)
-        F = self.dynamics(X, U)
-        return L + np.sum(dVdX * F, axis=0, keepdims=True)
-
     def dynamics(self, X, U):
         '''
         Evaluate the closed-loop dynamics at single or multiple time instances.
@@ -224,6 +207,27 @@ class TemplateOCP:
         -------
         dXdt : (n_states,) or (n_states, n_points) array
             Dynamics dXdt = F(X,U).
+        '''
+        raise NotImplementedError
+
+    def jacobians(self, X, U):
+        '''
+        Evaluate the Jacobians of the dynamics with respect to states and
+        controls at single or multiple time instances.
+
+        Parameters
+        ----------
+        X : (n_states,) or (n_states, n_points) array
+            Current states.
+        U : (n_controls,) or (n_controls, n_points)  array
+            Control inputs.
+
+        Returns
+        -------
+        dFdX : (n_states, n_states) or (n_states, n_states, n_points) array
+            Jacobian with respect to states, dF/dX.
+        dFdU : (n_states, n_controls) or (n_states, n_controls, n_points) array
+            Jacobian with respect to controls, dF/dX.
         '''
         raise NotImplementedError
 
@@ -347,6 +351,35 @@ class LinearSystem(TemplateOCP):
             Dynamics dXdt = F(X,U).
         '''
         return np.matmul(self.A, X) + np.matmul(self.B, U)
+
+    def jacobians(self, X, U):
+        '''
+        Evaluate the Jacobians of the dynamics with respect to states and
+        controls at single or multiple time instances.
+
+        Parameters
+        ----------
+        X : (n_states,) or (n_states, n_points) array
+            Current states.
+        U : (n_controls,) or (n_controls, n_points)  array
+            Control inputs.
+
+        Returns
+        -------
+        dFdX : (n_states, n_states) or (n_states, n_states, n_points) array
+            Jacobian with respect to states, dF/dX.
+        dFdU : (n_states, n_controls) or (n_states, n_controls, n_points) array
+            Jacobian with respect to controls, dF/dX.
+        '''
+        dFdX, dFdU = self.A, self.B
+
+        if X.ndim > 1:
+            dFdX = np.expand_dims(dFdX, -1)
+            dFdX = np.tile(dFdX, (1,1,X.shape[-1]))
+            dFdU = np.expand_dims(dFdU, -1)
+            dFdU = np.tile(dFdU, (1,1,X.shape[-1]))
+
+        return dFdX, dFdU
 
     def bvp_dynamics(self, t, X_aug):
         '''
@@ -498,6 +531,43 @@ class VanDerPol(TemplateOCP):
         dx2dt = self.mu * (1. - x1**2) * x2 - x1 + self.b * U
         return np.concatenate((dx1dt, dx2dt))
 
+    def jacobians(self, X, U):
+        '''
+        Evaluate the Jacobians of the dynamics with respect to states and
+        controls at single or multiple time instances.
+
+        Parameters
+        ----------
+        X : (n_states,) or (n_states, n_points) array
+            Current states.
+        U : (n_controls,) or (n_controls, n_points)  array
+            Control inputs.
+
+        Returns
+        -------
+        dFdX : (n_states, n_states) or (n_states, n_states, n_points) array
+            Jacobian with respect to states, dF/dX.
+        dFdU : (n_states, n_controls) or (n_states, n_controls, n_points) array
+            Jacobian with respect to controls, dF/dX.
+        '''
+        x1 = np.atleast_1d(X[0])
+        x2 = np.atleast_1d(X[1])
+
+        dFdX = np.array([
+            [np.zeros_like(x1), np.ones_like(x1)],
+            [-1. - 2.*self.mu*x1*x2, self.mu*(1. - x1**2)]
+        ])
+
+        dFdU = self.B
+
+        if X.ndim > 1:
+            dFdU = np.expand_dims(dFdU, -1)
+            dFdU = np.tile(dFdU, (1,1,X.shape[-1]))
+        else:
+            dFdX = np.squeeze(dFdX)
+
+        return dFdX, dFdU
+
     def bvp_dynamics(self, t, X_aug):
         '''
         Evaluate the augmented dynamics for Pontryagin's Minimum Principle.
@@ -569,7 +639,7 @@ class Satellite(TemplateOCP):
         # Dynamics linearized around X_bar (dxdt ~= Ax + Bu)
         A = np.zeros((7,7))
         A[1:4,4:] = np.identity(3) / 2.
-        B = np.vstack((np.zeros((4,3)), -self.Jinv))
+        self.B = np.vstack((np.zeros((4,3)), -self.Jinv))
 
         # Cost matrices (ignores scalar component of quaternion)
         Q = np.zeros((7,7))
@@ -578,7 +648,7 @@ class Satellite(TemplateOCP):
 
         R = (self.Wu / 2.) * np.identity(3)
 
-        super().__init__(X_bar, U_bar, A, B, Q, R, U_lb=U_lb, U_ub=U_ub)
+        super().__init__(X_bar, U_bar, A, self.B, Q, R, U_lb=U_lb, U_ub=U_ub)
 
     def _break_state(self, X):
         '''
@@ -724,6 +794,53 @@ class Satellite(TemplateOCP):
         if flat_out:
             dXdt = dXdt.flatten()
         return dXdt
+
+    def jacobians(self, X, U):
+        '''
+        Evaluate the Jacobians of the dynamics with respect to states and
+        controls at single or multiple time instances.
+
+        Parameters
+        ----------
+        X : (n_states,) or (n_states, n_points) array
+            Current states.
+        U : (n_controls,) or (n_controls, n_points)  array
+            Control inputs.
+
+        Returns
+        -------
+        dFdX : (n_states, n_states) or (n_states, n_states, n_points) array
+            Jacobian with respect to states, dF/dX.
+        dFdU : (n_states, n_controls) or (n_states, n_controls, n_points) array
+            Jacobian with respect to controls, dF/dX.
+        '''
+        q0, q, w = self._break_state(X.reshape(7, -1))
+
+        Jw = np.matmul(self.J, w)
+
+        wx = cross_product_matrix(w)
+        qx = cross_product_matrix(q)
+        Jwx = cross_product_matrix(Jw)
+
+        q0 = np.kron(np.eye(3), q0).reshape(3, 3, -1)
+
+        dFdX = np.zeros((7, 7, w.shape[1]))
+        dFdX[0,1:4] = -0.5 * w
+        dFdX[0,4:] = -0.5 * q
+        dFdX[1:4,0] = 0.5 * w
+        dFdX[1:4,1:4] = -0.5 * wx
+        dFdX[1:4,4:] = 0.5 * (qx + q0)
+        dFdX[4:,4:] = np.matmul(Jwx.T - np.matmul(self.JT, wx.T), self.JinvT).T
+
+        dFdU = self.B
+
+        if X.ndim > 1:
+            dFdU = np.expand_dims(dFdU, -1)
+            dFdU = np.tile(dFdU, (1,1,X.shape[-1]))
+        else:
+            dFdX = np.squeeze(dFdX)
+
+        return dFdX, dFdU
 
     def bvp_dynamics(self, t, X_aug):
         '''Evaluation of the augmented dynamics at a vector of time instances

@@ -42,6 +42,7 @@ class DirectSolution:
         self.V = self.sol_V(self.t)
 
         if hasattr(NLP_res, 'constr'):
+            print(dir(NLP_res))
             self.residuals = NLP_res.constr[0]
         else:
             self.residuals = dynamic_constr.fun(NLP_res.x)
@@ -63,9 +64,9 @@ class DirectSolution:
 
 def solve_ocp(
         dynamics, cost_fun, t_guess, X_guess, U_guess, U_lb=None, U_ub=None,
-        dynamics_jac='2-point', cost_grad='2-point', cost_hess='2-point',
-        n_nodes=32, tol=1e-07, maxiter=1000,
-        solver='SLSQP', solver_options={}, reshape_order='C', verbose=0
+        dynamics_jac='2-point', cost_grad='2-point',
+        n_nodes=32, tol=1e-07, maxiter=1000, solver_options={},
+        reshape_order='C', verbose=0
     ):
     '''Solve an open loop OCP by LGR pseudospectral method.
 
@@ -102,24 +103,14 @@ def solve_ocp(
         dL/dU with the same shapes. If cost_grad=True, then assume that cost_fun
         returns the gradients in addition to the running cost. String options
         specify finite difference methods.
-    cost_hess : {'3-point', '2-point', 'cs', 'BFGS', 'SR1'}, default='2-point'
-        Only used if solver='trust-constr'. Method for calculating the Hessian
-        of the running cost by finite difference methods or a method from
-        scipy.optimize.HessianUpdateStrategy. If a finite difference method is
-        selected but cost_grad is already uses finite differences, defaults to
-        'SR1' instead. Analytical (callable) Hessian is currently not
-        implemented.
     n_nodes : int, default=32
         Number of LGR points for collocating time.
     tol : float, default=1e-07
         Tolerance for termination.
     maxiter : int, default=1000
         Maximum number of iterations to perform.
-    solver : str, default='SLSQP'
-        Nonlinear programming algorithm. Options are 'SLSQP' and 'trust-constr'.
-        See scipy.optimize.minimize for details.
     solver_options : dict, optional
-        Solver-specific keyword arguments. See scipy.optimize.minimize for
+        Solver-specific keyword arguments. See scipy.optimize.minimize.SLSQP for
         details.
     reshape_order : {'C', 'F'}, default='C'
         Use C ('C', row-major) or Fortran ('F', column-major) ordering for the
@@ -148,7 +139,7 @@ def solve_ocp(
     residuals : (n_nodes,) array
         L-infinity norm, max |dynamics(X(t), U(t)) - D * X(t)|, for each t
     status : int
-        Reason for algorithm termination. Depends on the solver used.
+        Reason for algorithm termination.
     message : string
         Verbal description of the termination reason.
     success : bool
@@ -158,14 +149,8 @@ def solve_ocp(
         scipy.optimize.minimize for details.
     '''
     options = {'maxiter': maxiter, **solver_options}
-    if solver == 'SLSQP':
-        options['iprint'] = options.get('iprint', verbose)
-        options['disp'] = options.get('disp', verbose)
-    elif solver == 'trust-constr':
-        options['sparse_jacobian'] = True
-        options['verbose'] = options.get('verbose', verbose)
-    else:
-        raise ValueError("solver must be one of 'SLSQP' or 'trust-constr'")
+    options['iprint'] = options.get('iprint', verbose)
+    options['disp'] = options.get('disp', verbose)
 
     # Initialize LGR quadrature
     tau, w_hat, D_hat = make_LGR(n_nodes)
@@ -197,19 +182,8 @@ def solve_ocp(
             X, U = separate_vars(XU)
             dLdX, dLdU = cost_grad(X, U)
             return collect_vars(dLdX * w, dLdU * w)
-
-        if cost_hess in ['BFGS', 'SR1']:
-            cost_hess = getattr(optimize, cost_hess)()
     else:
         jac = cost_grad
-        # Not allowed to combine finite difference Hessian and Jacobian
-        if cost_hess in ['3-point', '2-point', 'cs']:
-            cost_hess = optimize.SR1()
-
-    if solver == 'SLSQP':
-        hess = None
-    else:
-        hess = cost_hess
 
     dyn_constr = utilities.make_dynamic_constraint(
         dynamics, D, n_x, n_u, separate_vars, jac=dynamics_jac,
@@ -236,7 +210,7 @@ def solve_ocp(
             x0=collect_vars(X_guess, U_guess),
             bounds=bound_constr,
             constraints=[dyn_constr, init_cond_constr],
-            method=solver,
+            method='SLSQP',
             tol=tol,
             jac=jac,
             hess=hess,
