@@ -7,7 +7,7 @@ from pylgr import utilities
 
 TOL = 1e-10
 
-def _generate_nonlinear_dynamics(n_x, n_u, poly_deg=5):
+def _generate_dynamics(n_x, n_u, poly_deg=5):
     A = np.random.randn(n_x, n_x+n_u)
     # Make random polynomials of X and U with no constant term or linear term
     X_coefs = np.hstack((np.zeros((n_x,2)), np.random.randn(n_x, poly_deg-2)))
@@ -22,15 +22,42 @@ def _generate_nonlinear_dynamics(n_x, n_u, poly_deg=5):
     ]
 
     def dynamics(X, U):
+        flat_out = X.ndim < 2
+        X = X.reshape(n_x, -1)
+        U = U.reshape(n_u, -1)
+
         X_poly = np.vstack(
             np.atleast_2d([X_polys[i](X[i]) for i in range(n_x)])
         )
         U_poly = np.vstack(
             np.atleast_2d([U_polys[i](U[i]) for i in range(n_u)])
         )
-        return np.matmul(A, np.vstack((X_poly, U_poly)))
 
-    return dynamics
+        dXdt = np.matmul(A, np.vstack((X_poly, U_poly)))
+        if flat_out:
+            dXdt = dXdt.flatten()
+
+        return dXdt
+
+    def jacobians(X, U):
+        X = X.reshape(n_x, -1)
+        U = U.reshape(n_u, -1)
+        n_t = X.shape[1]
+
+        dFdX = np.empty((n_x, n_x, n_t))
+        dFdU = np.empty((n_x, n_u, n_t))
+
+        for k in range(n_t):
+            F0 = dynamics(X[:,k], U[:,k]).flatten()
+            dFdX[...,k] = approx_derivative(
+                lambda Xk: dynamics(Xk, U[:,k]), X[:,k], f0=F0, method='cs'
+            )
+            dFdU[...,k] = approx_derivative(
+                lambda Uk: dynamics(X[:,k], Uk), U[:,k], f0=F0, method='cs'
+            )
+        return dFdX, dFdU
+
+    return dynamics, jacobians
 
 def test_time_map():
     t_orig = np.linspace(0.,10.)
@@ -152,15 +179,14 @@ def test_dynamics_setup_Jacobian(n_nodes, order):
     XU = collect_vars(X, U)
 
     # Generate some random dynamics
-    dXdt = _generate_nonlinear_dynamics(n_x, n_u)
+    dXdt, jacobians = _generate_dynamics(n_x, n_u)
 
     constr = utilities.make_dynamic_constraint(
-        dXdt, D, n_x, n_u, separate_vars, order=order,
-        finite_diff_method='3-point'
+        dXdt, D, n_x, n_u, separate_vars, jac=jacobians, order=order
     )
 
     constr_Jac = constr.jac(XU)
-    expected_Jac = approx_derivative(constr.fun, XU)
+    expected_Jac = approx_derivative(constr.fun, XU, method='cs')
 
     assert constr_Jac.shape == (n_x*n_t, (n_x + n_u)*n_t)
     assert np.allclose(constr_Jac.toarray(), expected_Jac)
