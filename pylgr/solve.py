@@ -1,10 +1,9 @@
 import numpy as np
-import warnings
-from scipy import optimize
 from scipy.interpolate import BarycentricInterpolator
 from scipy.integrate import solve_ivp
 
 from .legendre_gauss_radau import make_LGR
+from .minimize_slsqp import minimize
 from . import utilities
 
 class LagrangeInterpolator(BarycentricInterpolator):
@@ -26,6 +25,7 @@ class DirectSolution:
             order, separate_vars
         ):
         self.NLP_res = NLP_res
+        print(NLP_res.kkt.shape)
         self._separate_vars = separate_vars
         self._running_cost = running_cost
 
@@ -196,25 +196,19 @@ def solve_ocp(
         U_lb, U_ub, n_x, n_nodes, order=reshape_order
     )
 
-    with warnings.catch_warnings():
-        # Don't print warnings about unused options
-        if not verbose:
-            warnings.filterwarnings("ignore", category=optimize.OptimizeWarning)
+    if verbose:
+        print('\nNumber of LGR nodes: %d' % n_nodes)
+        print('---------------------------------------------')
 
-        if verbose:
-            print('\nNumber of LGR nodes: %d' % n_nodes)
-            print('---------------------------------------------')
-
-        NLP_res = optimize.minimize(
-            fun=cost_fun_wrapper,
-            x0=collect_vars(X_guess, U_guess),
-            bounds=bound_constr,
-            constraints=[dyn_constr, init_cond_constr],
-            method='SLSQP',
-            tol=tol,
-            jac=jac,
-            options=options
-        )
+    NLP_res = minimize(
+        fun=cost_fun_wrapper,
+        x0=collect_vars(X_guess, U_guess),
+        bounds=bound_constr,
+        constraints=[dyn_constr, init_cond_constr],
+        tol=tol,
+        jac=jac,
+        options=options
+    )
 
     return DirectSolution(
         NLP_res, tau, cost_fun, dyn_constr, U_lb, U_ub,
