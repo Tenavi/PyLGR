@@ -1,10 +1,9 @@
 import numpy as np
-import warnings
-from scipy import optimize
 from scipy.interpolate import BarycentricInterpolator
 from scipy.integrate import solve_ivp
 
 from .legendre_gauss_radau import make_LGR
+from .minimize_slsqp import minimize
 from . import utilities
 
 class LagrangeInterpolator(BarycentricInterpolator):
@@ -22,8 +21,8 @@ class LagrangeInterpolator(BarycentricInterpolator):
 
 class DirectSolution:
     def __init__(
-            self, NLP_res, tau, running_cost, dynamic_constr, U_lb, U_ub,
-            order, separate_vars
+            self, NLP_res, dynamics, running_cost, U_lb, U_ub,
+            tau, w, D, order, separate_vars
         ):
         self.NLP_res = NLP_res
         self._separate_vars = separate_vars
@@ -36,18 +35,20 @@ class DirectSolution:
         self.t = utilities.invert_time_map(tau)
 
         self.X, self.U = separate_vars(NLP_res.x)
+
+        dXdt = dynamics(self.X, self.U)
+        self.residuals = np.matmul(self.X, D.T) - dXdt
+        self.residuals = np.max(np.abs(self.residuals), axis=0)
+
+        # Extract KKT multipliers and use to approximate costates
+        self.dVdX = NLP_res.kkt['eq'][0].reshape(self.X.shape, order=order)
+        self.dVdX = self.dVdX * -np.sign(dXdt) / w.reshape(1,-1)
+
         self.sol_X = LagrangeInterpolator(tau, self.X)
         self.sol_U = LagrangeInterpolator(tau, self.U, U_lb, U_ub)
+        self.sol_dVdX = LagrangeInterpolator(tau, self.dVdX)
 
         self.V = self.sol_V(self.t)
-
-        if hasattr(NLP_res, 'constr'):
-            print(dir(NLP_res))
-            self.residuals = NLP_res.constr[0]
-        else:
-            self.residuals = dynamic_constr.fun(NLP_res.x)
-        self.residuals = self.residuals.reshape(self.X.shape, order=order)
-        self.residuals = np.max(np.abs(self.residuals), axis=0)
 
     def _value_dynamics(self, t, J):
         X = self.sol_X(t)
@@ -196,27 +197,21 @@ def solve_ocp(
         U_lb, U_ub, n_x, n_nodes, order=reshape_order
     )
 
-    with warnings.catch_warnings():
-        # Don't print warnings about unused options
-        if not verbose:
-            warnings.filterwarnings("ignore", category=optimize.OptimizeWarning)
+    if verbose:
+        print('\nNumber of LGR nodes: %d' % n_nodes)
+        print('---------------------------------------------')
 
-        if verbose:
-            print('\nNumber of LGR nodes: %d' % n_nodes)
-            print('---------------------------------------------')
-
-        NLP_res = optimize.minimize(
-            fun=cost_fun_wrapper,
-            x0=collect_vars(X_guess, U_guess),
-            bounds=bound_constr,
-            constraints=[dyn_constr, init_cond_constr],
-            method='SLSQP',
-            tol=tol,
-            jac=jac,
-            options=options
-        )
+    NLP_res = minimize(
+        fun=cost_fun_wrapper,
+        x0=collect_vars(X_guess, U_guess),
+        bounds=bound_constr,
+        constraints=[dyn_constr, init_cond_constr],
+        tol=tol,
+        jac=jac,
+        options=options
+    )
 
     return DirectSolution(
-        NLP_res, tau, cost_fun, dyn_constr, U_lb, U_ub,
-        reshape_order, separate_vars
+        NLP_res, dynamics, cost_fun, U_lb, U_ub,
+        tau, w, D, reshape_order, separate_vars
     )

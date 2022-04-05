@@ -242,7 +242,7 @@ def make_dynamic_constraint(
                 sparse.block_diag([np.ones((n_states, n_controls))]*n_nodes)
             ))
 
-        def nonlinear_constr_fun(XU):
+        def dynamics_wrapper(XU):
             X, U = separate_vars(XU)
             F = dynamics(X, U)
             return -F.flatten(order=order)
@@ -250,7 +250,7 @@ def make_dynamic_constraint(
         def constr_jac(XU):
             # Compute nonlinear components with finite differences
             Jac = optimize._numdiff.approx_derivative(
-                nonlinear_constr_fun, XU, sparsity=sparsity, method=jac
+                dynamics_wrapper, XU, sparsity=sparsity, method=jac
             )
             return Jac + linear_constr
 
