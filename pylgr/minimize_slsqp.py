@@ -156,7 +156,7 @@ def minimize(
     if remove_vars:
         res.x = _add_to_array(res.x, i_fixed, x_fixed)
         res.jac = _add_to_array(res.jac, i_fixed, np.nan)
-        if "hess_inv" in res:
+        if 'hess_inv' in res:
             res.hess_inv = None
 
     return res
