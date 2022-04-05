@@ -190,7 +190,6 @@ def _minimize_slsqp(
     """
     iter = maxiter - 1
     acc = ftol
-    epsilon = eps
 
     if not disp:
         iprint = 0
@@ -247,7 +246,7 @@ def _minimize_slsqp(
                                                  bounds=new_bounds)
                     else:
                         return approx_derivative(fun, x, method='2-point',
-                                                 abs_step=epsilon, args=args,
+                                                 abs_step=eps, args=args,
                                                  bounds=new_bounds)
 
                 return cjac
@@ -271,11 +270,12 @@ def _minimize_slsqp(
                    9: "Iteration limit reached"}
 
     # Set the parameters that SLSQP will need
+    # _meq_cv: a list containing the length of values each constraint function
+    _meq_cv = [len(np.atleast_1d(c['fun'](x, *c['args']))) for c in cons['eq']]
+    _mieq_cv = [len(np.atleast_1d(c['fun'](x, *c['args']))) for c in cons['ineq']]
     # meq, mieq: number of equality and inequality constraints
-    meq = sum(map(len, [np.atleast_1d(c['fun'](x, *c['args']))
-              for c in cons['eq']]))
-    mieq = sum(map(len, [np.atleast_1d(c['fun'](x, *c['args']))
-               for c in cons['ineq']]))
+    meq = sum(_meq_cv)
+    mieq = sum(_mieq_cv)
     # m = The total number of constraints
     m = meq + mieq
     # la = The number of constraints, or 1 if there are no constraints
@@ -379,14 +379,14 @@ def _minimize_slsqp(
             c = _eval_constraint(x, cons)
 
         if mode == -1:  # gradient evaluation required
-            g =np.append(wrapped_grad(x), 0.0)
+            g = np.append(wrapped_grad(x), 0.0)
             a = _eval_con_normals(x, cons, la, n, m, meq, mieq)
 
         if majiter > majiter_prev:
             # Print the status of the current iterate if iprint > 2
             if iprint >= 2:
                 print("%5i %5i % 16.6E % 16.6E" % (majiter, sf.nfev,
-                                                   fx, linalg.norm(g)))
+                                                   fx, np.linalg.norm(g)))
 
         # If exit mode is not -1 or 1, slsqp has completed
         if abs(mode) != 1:
@@ -394,44 +394,40 @@ def _minimize_slsqp(
 
         majiter_prev = int(majiter)
 
-    _mode = mode.copy()
-    print(fx)
+    # Obtain KKT multipliers
+    im = 1
+    il = im + la
+    ix = il + (n1*n)//2 + 1
+    ir = ix + n - 1
+    _kkt_mult = np.abs(w[ir: ir + m])
 
-    # Get the KKT multipliers from SLSQP result
-    # This extra call is required to get the correct kkt values.
-    slsqp(m, meq, x, xl, xu, fx, c, g, a, acc, majiter, mode, w, jw,
-          alpha, f0, gs, h1, h2, h3, h4, t, t0, tol,
-          iexact, incons, ireset, itermx, line,
-          n1, n2, n3)
-
-    print(fx)
-    mode = _mode
-
+    # KKT multipliers
     w_ind = 0
-    ind_mapper = []
-    kkt = []
-    for constraint in cons['eq'] + cons['ineq']:
-        cv = np.atleast_1d(constraint['fun'](x))
-        dim = len(cv)
-        kkt += [w[w_ind:(w_ind + dim)]]
-        w_ind += dim
-        ind_mapper += [ii for ii, item in enumerate(constraints) if item['fun'] == constraint['fun']]
+    kkt_multiplier = dict()
 
-    kkt_sorted = [kkt[i] for i in ind_mapper]
+    for _t, cv in [("eq", _meq_cv), ("ineq", _mieq_cv)]:
+        kkt = []
+
+        for dim in cv:
+            kkt += [_kkt_mult[w_ind:(w_ind + dim)]]
+            w_ind += dim
+
+        kkt_multiplier[_t] = kkt
 
     # Optimization loop complete. Print status if requested
     if iprint >= 1:
-        print(exit_modes[int(mode)] + "    (Exit mode " + str(mode) + ')')
+        print(f"{exit_modes[int(mode)]}    (Exit mode {mode})")
         print("            Current function value:", fx)
         print("            Iterations:", majiter)
         print("            Function evaluations:", sf.nfev)
         print("            Gradient evaluations:", sf.ngev)
 
-    return OptimizeResult(
-        x=x, fun=fx, jac=g[:-1], kkt=kkt_sorted,
-        nit=int(majiter), nfev=sf.nfev, njev=sf.ngev,
-        status=int(mode), message=exit_modes[int(mode)], success=(mode==0)
-    )
+    return OptimizeResult(x=x, fun=fx, jac=g[:-1],
+                          nit=int(majiter),
+                          nfev=sf.nfev, njev=sf.ngev, status=int(mode),
+                          message=exit_modes[int(mode)],
+                          success=(mode==0),
+                          kkt=kkt_multiplier)
 
 def _prepare_scalar_function(fun, x0, jac=None, args=(), bounds=None,
                              epsilon=None, finite_diff_rel_step=None,

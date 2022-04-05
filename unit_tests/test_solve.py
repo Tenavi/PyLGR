@@ -41,26 +41,39 @@ def _get_BVP_sol(OCP, t_guess, X_guess, tol):
 
     t_opt = BVP_sol.x
     X_opt = BVP_sol.y[:OCP.n_states]
+    dVdX_opt = BVP_sol.y[OCP.n_states:]
     U_opt = OCP.U_star(X_opt, BVP_sol.y[OCP.n_states:])
 
     opt_cost = OCP.running_cost(X_opt, U_opt)
     opt_cost = np.trapz(opt_cost, x=t_opt)
 
-    return t_opt, X_opt, U_opt, opt_cost
+    return t_opt, X_opt, U_opt, dVdX_opt, opt_cost
 
-def _plot_results(t_ref, X_ref, U_ref, PS_sol, feas_sol, problem_name):
+def _plot_results(
+        t_ref, X_ref, U_ref, dVdX_ref, PS_sol, feas_sol, problem_name
+    ):
+    n_states = X_ref.shape[0]
+    n_controls = U_ref.shape[0]
+
+    # Get matplotlib default color order
+    prop_cycle = plt.rcParams['axes.prop_cycle']
+    colors = prop_cycle.by_key()['color']*max(n_states, n_controls)
+
     plt.figure()
 
     plt.plot(t_ref, X_ref.T, 'k')
-    plt.plot(t_ref, PS_sol.sol_X(t_ref).T, '--')
+    sol_X = np.atleast_2d(PS_sol.sol_X(t_ref))
+    for i in range(n_states):
+        plt.plot(t_ref, sol_X[i], '--', color=colors[i])
 
     plt.gca().set_xlim(0.,t_ref.max())
     plt.title(problem_name + ": interpolated states")
 
     plt.figure()
 
-    plt.plot(PS_sol.t, PS_sol.X.T, '^k')
-    plt.plot(feas_sol.t, feas_sol.y.T, '--')
+    for i in range(n_states):
+        plt.plot(PS_sol.t, PS_sol.X[i], '^', color=colors[i])
+        plt.plot(feas_sol.t, feas_sol.y[i], '--', color=colors[i])
 
     plt.gca().set_xlim(0.,t_ref.max())
     plt.gca().set_ylim(2.*PS_sol.X.min(), 2.*PS_sol.X.max())
@@ -69,11 +82,24 @@ def _plot_results(t_ref, X_ref, U_ref, PS_sol, feas_sol, problem_name):
     plt.figure()
 
     plt.plot(t_ref, U_ref.T, 'k')
-    plt.plot(PS_sol.t, PS_sol.U.T, '^k')
-    plt.plot(t_ref, PS_sol.sol_U(t_ref).T, '--')
+    sol_U = np.atleast_2d(PS_sol.sol_U(t_ref))
+    for i in range(n_controls):
+        plt.plot(PS_sol.t, PS_sol.U[i], '^', color=colors[i])
+        plt.plot(t_ref, sol_U[i], '--', color=colors[i])
 
     plt.gca().set_xlim(0.,t_ref.max())
     plt.title(problem_name + ": controls")
+
+    plt.figure()
+
+    plt.plot(t_ref, dVdX_ref.T, 'k')
+    sol_dVdX = np.atleast_2d(PS_sol.sol_dVdX(t_ref))
+    for i in range(n_states):
+        plt.plot(PS_sol.t, PS_sol.dVdX[i], '^', color=colors[i])
+        plt.plot(t_ref, sol_dVdX[i], '--', color=colors[i])
+
+    plt.gca().set_xlim(0.,t_ref.max())
+    plt.title(problem_name + ": costates")
 
     plt.show()
 
@@ -98,7 +124,7 @@ def test_LQR(U_max, order, n_nodes):
     start_time = time.time()
 
     t_LQR, X_LQR, U_LQR, LQR_cost = _get_LQR_guess(OCP, t1, X0, tol)
-    t_opt, X_opt, U_opt, opt_cost = _get_BVP_sol(OCP, t_LQR, X_LQR, tol/10.)
+    t_opt, X_opt, U_opt, dVdX_opt, opt_cost = _get_BVP_sol(OCP, t_LQR, X_LQR, tol/10.)
 
     print(
         '\nIndirect solution time: %.4fs. Optimal cost: %.4f'
@@ -135,7 +161,7 @@ def test_LQR(U_max, order, n_nodes):
         if U_max is not None:
             problem_name = 'Constrained LQR'
         _plot_results(
-            t_opt, X_opt, U_opt, PS_sol, feas_sol, problem_name
+            t_opt, X_opt, U_opt, dVdX_opt, PS_sol, feas_sol, problem_name
         )
 
 @pytest.mark.parametrize('order', ['C'])
@@ -157,7 +183,7 @@ def test_van_der_pol(order, n_nodes):
     start_time = time.time()
 
     t_LQR, X_LQR, U_LQR, LQR_cost = _get_LQR_guess(OCP, t1, X0, tol)
-    t_opt, X_opt, U_opt, opt_cost = _get_BVP_sol(OCP, t_LQR, X_LQR, tol/10.)
+    t_opt, X_opt, U_opt, dVdX_opt, opt_cost = _get_BVP_sol(OCP, t_LQR, X_LQR, tol/10.)
 
     print(
         '\nIndirect solution time: %.4fs. Optimal cost: %.4f'
@@ -192,7 +218,7 @@ def test_van_der_pol(order, n_nodes):
             closed_loop_dynamics, [0.,t1], X0.flatten(), atol=tol/1000, rtol=tol
         )
         _plot_results(
-            t_opt, X_opt, U_opt, PS_sol, feas_sol, 'Van der Pol'
+            t_opt, X_opt, U_opt, dVdX_opt, PS_sol, feas_sol, 'Van der Pol'
         )
 
 @pytest.mark.parametrize('order', ['C'])
@@ -222,7 +248,7 @@ def test_satellite(order, n_nodes):
     start_time = time.time()
 
     t_LQR, X_LQR, U_LQR, LQR_cost = _get_LQR_guess(OCP, t1, X0, tol)
-    t_opt, X_opt, U_opt, opt_cost = _get_BVP_sol(OCP, t_LQR, X_LQR, tol/100.)
+    t_opt, X_opt, U_opt, dVdX_opt, opt_cost = _get_BVP_sol(OCP, t_LQR, X_LQR, tol/100.)
 
     print(
         '\nIndirect solution time: %.4fs. Optimal cost: %.4f'
@@ -257,5 +283,5 @@ def test_satellite(order, n_nodes):
             closed_loop_dynamics, [0.,t1], X0.flatten(), atol=tol/1000, rtol=tol
         )
         _plot_results(
-            t_opt, X_opt, U_opt, PS_sol, feas_sol, 'Satellite'
+            t_opt, X_opt, U_opt, dVdX_opt, PS_sol, feas_sol, 'Satellite'
         )

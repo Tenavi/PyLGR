@@ -4,13 +4,14 @@ A basic Python implementation of a Legendre-Gauss-Radau (LGR) pseudospectral
 (PS) method for infinite horizon computational optimal control. The optimal
 control problem (OCP) is collocated in time at LGR points, turning it into a
 constrained nonlinear programming problem which we solve with sequential least
-squares quadratic programming (SLSQP).
+squares quadratic programming (SLSQP). Rough estimates for the costates are
+extracted based on the covector mapping theorem.
 
 --------------------------------------------------------------------------------
 
 The code has been tested with the following package dependencies:
 
-scipy=1.4.1, numpy=1.16.5, pytest=6.1.1, matplotlib=3.1.2
+scipy=1.5.2, numpy=1.16.5, pytest=6.1.1, matplotlib=3.1.2
 
 The code can be installed using the following command:
 
