@@ -11,7 +11,7 @@ extracted based on the covector mapping theorem.
 
 The code has been tested with the following package dependencies:
 
-scipy=1.5.2, numpy=1.16.5, pytest=6.1.1, matplotlib=3.1.2
+scipy=1.5.2, numpy=1.19.1, pytest=6.1.1, matplotlib=3.1.2
 
 The code can be installed using the following command:
 
