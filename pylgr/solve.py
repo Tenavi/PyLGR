@@ -42,7 +42,7 @@ class DirectSolution:
 
         # Extract KKT multipliers and use to approximate costates
         self.dVdX = NLP_res.kkt['eq'][0].reshape(self.X.shape, order=order)
-        self.dVdX = self.dVdX * -np.sign(dXdt) / w.reshape(1,-1)
+        self.dVdX = self.dVdX / w.reshape(1,-1)
 
         self.sol_X = LagrangeInterpolator(tau, self.X)
         self.sol_U = LagrangeInterpolator(tau, self.U, U_lb, U_ub)

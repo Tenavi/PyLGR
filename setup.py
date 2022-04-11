@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pylgr",
-    version="0.3.0",
+    version="0.3.1",
     description="Legendre-Gauss-Radau pseudospectral method for optimal control",
     long_description=long_description,
     long_description_content_type="text/markdown",

@@ -399,7 +399,7 @@ def _minimize_slsqp(
     il = im + la
     ix = il + (n1*n)//2 + 1
     ir = ix + n - 1
-    _kkt_mult = np.abs(w[ir: ir + m])
+    _kkt_mult = w[ir:ir + m]
 
     # KKT multipliers
     w_ind = 0
