@@ -66,7 +66,7 @@ class DirectSolution:
 def solve_ocp(
         dynamics, cost_fun, t_guess, X_guess, U_guess, U_lb=None, U_ub=None,
         dynamics_jac='2-point', cost_grad='2-point',
-        n_nodes=32, tol=1e-07, maxiter=1000, solver_options={},
+        n_nodes=32, tol=1e-07, maxiter=500, solver_options={},
         reshape_order='C', verbose=0
     ):
     '''Solve an open loop OCP by LGR pseudospectral method.
@@ -138,7 +138,7 @@ def solve_ocp(
     V : float
         Computed optimal cost at initial point, V(X_0).
     residuals : (n_nodes,) array
-        L-infinity norm, max |dynamics(X(t), U(t)) - D * X(t)|, for each t
+        L-infinity norm, max |dynamics(X(t), U(t)) - D @ X(t)|, for each t
     status : int
         Reason for algorithm termination.
     message : string
@@ -159,7 +159,7 @@ def solve_ocp(
     # Time scaling for transformation to LGR points
     r_tau = utilities.deriv_time_map(tau)
     w = w_hat * r_tau
-    D = np.matmul(np.diag(1./r_tau), D_hat)
+    D = np.einsum('i,ij->ij', 1./r_tau, D_hat)
 
     # Map initial guess to LGR points
     X0 = X_guess[:,:1]
@@ -199,7 +199,7 @@ def solve_ocp(
 
     if verbose:
         print('\nNumber of LGR nodes: %d' % n_nodes)
-        print('---------------------------------------------')
+        print('-----------------------------------------------------')
 
     NLP_res = minimize(
         fun=cost_fun_wrapper,
