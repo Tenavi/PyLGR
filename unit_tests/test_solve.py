@@ -166,7 +166,7 @@ def test_LQR(U_max, order, n_nodes):
 
 @pytest.mark.parametrize('order', ['C'])
 @pytest.mark.parametrize('n_nodes', [11,32])
-def test_van_der_pol(order, n_nodes, X0):
+def test_van_der_pol(order, n_nodes):
     '''
     Evaluate the solve_ocp method against a reference solution obtained with an
     indirect method.
