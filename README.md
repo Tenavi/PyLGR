@@ -11,21 +11,21 @@ extracted based on the covector mapping theorem.
 
 The code has been tested with the following package dependencies:
 
-scipy=1.5.2, numpy=1.19.1, pytest=6.1.1, matplotlib=3.1.2
+scipy>=1.5.2, numpy>=1.19.1, pytest>=6.1.1, matplotlib>=3.1.2
 
 The code can be installed using the following command:
 
-'pip install -e .'
+`pip install -e .`
 
 You can then import pylgr in any python script. The main function is
-'pylgr.solve_ocp'. Documentation can be accessed by the python command
-'help(pylgr.solve_ocp)'.
+`pylgr.solve_ocp`. Documentation can be accessed by the python command
+`help(pylgr.solve_ocp)`.
 
 --------------------------------------------------------------------------------
 
 The test suite can be run from the main directory with the command
 
-'pytest unit_tests -s -v'
+`pytest unit_tests -s -v`
 
 Plotting can be enabled in test_solve.py inside each individual test function.
 
