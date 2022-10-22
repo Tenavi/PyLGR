@@ -166,13 +166,13 @@ def test_LQR(U_max, order, n_nodes):
 
 @pytest.mark.parametrize('order', ['C'])
 @pytest.mark.parametrize('n_nodes', [11,32])
-def test_van_der_pol(order, n_nodes):
+def test_van_der_pol(order, n_nodes, X0):
     '''
     Evaluate the solve_ocp method against a reference solution obtained with an
     indirect method.
     '''
     tol = 1e-05
-    plot_sims = False
+    plot_sims = n_nodes >= 32
     verbose = 0
 
     OCP = example_problems.VanDerPol()
@@ -229,7 +229,7 @@ def test_satellite(order, n_nodes):
     indirect method.
     '''
     tol = 1e-05
-    plot_sims = False
+    plot_sims = n_nodes >= 40
     verbose = 0
 
     OCP = example_problems.Satellite()
