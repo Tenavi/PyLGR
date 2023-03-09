@@ -2,8 +2,6 @@ import numpy as np
 from scipy import optimize, sparse
 from scipy.interpolate import interp1d
 
-from .legendre_gauss_radau import make_LGR
-
 _order_err_msg = "order must be one of 'C' (C, row-major) or 'F' (Fortran, column-major)"
 
 def time_map(t):

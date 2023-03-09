@@ -9,7 +9,7 @@ from pylgr import legendre_gauss_radau as LGR
 TOL = 1e-10
 
 # Reference data computed with Matlab scripts
-test_data_path = os.path.join('unit_tests', 'test_data', 'LGR_diff.mat')
+test_data_path = os.path.join('tests', 'test_data', 'LGR_diff.mat')
 LGR_diff_mat = scipy.io.loadmat(test_data_path)
 LGR_diff_reference = {}
 
