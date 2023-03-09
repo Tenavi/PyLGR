@@ -3,7 +3,7 @@ from scipy.interpolate import BarycentricInterpolator
 from scipy.integrate import solve_ivp
 
 from .legendre_gauss_radau import make_LGR
-from .minimize_slsqp import minimize
+from pylgr.optimize import minimize
 from . import utilities
 
 class LagrangeInterpolator(BarycentricInterpolator):
@@ -111,7 +111,7 @@ def solve_ocp(
     maxiter : int, default=1000
         Maximum number of iterations to perform.
     solver_options : dict, optional
-        Solver-specific keyword arguments. See scipy.optimize.minimize.SLSQP for
+        Solver-specific keyword arguments. See scipy.optimize.optimize.SLSQP for
         details.
     reshape_order : {'C', 'F'}, default='C'
         Use C ('C', row-major) or Fortran ('F', column-major) ordering for the
@@ -147,7 +147,7 @@ def solve_ocp(
         True if the algorithm converged to the desired accuracy (status=0).
     NLP_res : object
         Bunch object containing the full result output by the NLP solver. See
-        scipy.optimize.minimize for details.
+        scipy.optimize.optimize for details.
     '''
     options = {'maxiter': maxiter, **solver_options}
     options['iprint'] = options.get('iprint', verbose)
