@@ -9,9 +9,13 @@ extracted based on the covector mapping theorem.
 
 --------------------------------------------------------------------------------
 
-The code has been tested with the following package dependencies:
+The code has been tested with the following dependencies:
 
-scipy>=1.5.2, numpy>=1.19.1, pytest>=6.1.1, matplotlib>=3.1.2
+    python>=3.6
+    numpy>=1.19.5
+    scipy>=1.5.4
+    pytest>=7.0.1
+    matplotlib>=3.3.4
 
 The code can be installed using the following command:
 
