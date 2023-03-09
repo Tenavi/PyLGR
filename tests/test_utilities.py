@@ -4,6 +4,7 @@ import numpy as np
 from scipy.optimize._numdiff import approx_derivative
 
 from pylgr import utilities
+from pylgr import legendre_gauss_radau as LGR
 
 TOL = 1e-10
 
@@ -129,7 +130,7 @@ def test_dynamics_setup(order):
         n_x, n_u, n_t, order=order
     )
 
-    tau, w, D = utilities.make_LGR(n_t)
+    tau, w, D = LGR.make_LGR(n_t)
 
     # Generate random polynomials of degree n-1 for the state
     coef = np.random.randn(n_x, n_t)
@@ -171,7 +172,7 @@ def test_dynamics_setup_Jacobian(n_nodes, order):
         n_x, n_u, n_t, order=order
     )
 
-    tau, w, D = utilities.make_LGR(n_t)
+    tau, w, D = LGR.make_LGR(n_t)
 
     # Generate random states and controls
     X = np.random.randn(n_x, n_t)

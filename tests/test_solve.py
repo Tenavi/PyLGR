@@ -5,10 +5,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.integrate import solve_ivp, solve_bvp
 
-from pylgr import solve_ocp, utilities
-from pylgr import legendre_gauss_radau as LGR
+from pylgr import solve_ocp
 
 from .test_data import example_problems
+
+PLOT_SIMS = False
 
 def _assert_converged(PS_sol, tol):
     assert PS_sol.success
@@ -112,7 +113,7 @@ def test_LQR(U_max, order, n_nodes):
     without control saturation constraints.
     '''
     tol = 1e-05
-    plot_sims = False
+    plot_sims = PLOT_SIMS
     verbose = 0
     n_x, n_u, n_t = 3, 2, n_nodes
 
@@ -172,7 +173,7 @@ def test_van_der_pol(order, n_nodes):
     indirect method.
     '''
     tol = 1e-05
-    plot_sims = n_nodes >= 32
+    plot_sims = PLOT_SIMS
     verbose = 0
 
     OCP = example_problems.VanDerPol()
@@ -229,7 +230,7 @@ def test_satellite(order, n_nodes):
     indirect method.
     '''
     tol = 1e-05
-    plot_sims = n_nodes >= 40
+    plot_sims = PLOT_SIMS
     verbose = 0
 
     OCP = example_problems.Satellite()

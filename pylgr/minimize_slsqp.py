@@ -7,8 +7,10 @@ from scipy.optimize._slsqp import slsqp
 from scipy.optimize._differentiable_functions import FD_METHODS
 from scipy.optimize._hessian_update_strategy import HessianUpdateStrategy
 from scipy.optimize._constraints import old_bound_to_new
-from scipy.optimize._minimize import standardize_constraints, standardize_bounds
-from scipy.optimize._minimize import MemoizeJac
+from scipy.optimize._minimize import (
+    standardize_constraints, standardize_bounds, MemoizeJac,
+    _remove_from_func, _remove_from_bounds
+)
 from scipy.optimize import OptimizeResult
 
 def minimize(
@@ -17,8 +19,9 @@ def minimize(
     ):
     """Minimization of scalar function of one or more variables.
 
-    Wrapper of scipy.optimize.minimize implementing shortcuts to the SLSQP
-    method and extracting the KKT multipliers.
+    Wrapper and modification of `scipy.optimize.minimize` implementing shortcuts
+    to the `"SLSQP"` method and extracting the KKT multipliers. Based on work by
+    github user andyfaff.
 
     Parameters
     ----------
@@ -168,7 +171,10 @@ def _minimize_slsqp(
     ):
     """
     Minimize a scalar function of one or more variables using Sequential
-    Least Squares Programming (SLSQP).
+    Least Squares Programming (SLSQP). Modified from
+    `scipy.optimize._sclsqp_py._minimize_slsqp` to extract KKT multipliers.
+    Based on work by github user andyfaff.
+
     Options
     -------
     ftol : float
@@ -434,7 +440,8 @@ def _prepare_scalar_function(fun, x0, jac=None, args=(), bounds=None,
                              hess=None):
     """
     Creates a ScalarFunction object for use with scalar minimizers
-    (BFGS/LBFGSB/SLSQP/TNC/CG/etc).
+    (BFGS/LBFGSB/SLSQP/TNC/CG/etc). From `scipy.optimize._optimize`.
+
     Parameters
     ----------
     fun : callable
@@ -516,8 +523,11 @@ def _prepare_scalar_function(fun, x0, jac=None, args=(), bounds=None,
 
 class ScalarFunction:
     """Scalar function and its derivatives.
+
     This class defines a scalar function F: R^n->R and methods for
-    computing or approximating its first and second derivatives.
+    computing or approximating its first and second derivatives. From
+    `scipy.optimize._optimize`.
+
     Parameters
     ----------
     fun : callable
