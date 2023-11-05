@@ -1,13 +1,11 @@
 import numpy as np
-
 from scipy.optimize._slsqp import slsqp
-from scipy.optimize._constraints import old_bound_to_new, _arr_to_scalar
+from scipy.optimize._constraints import old_bound_to_new
 from scipy.optimize import OptimizeResult
 from scipy.optimize._numdiff import approx_derivative
 
-from ._optimize import (
-    _prepare_scalar_function, _clip_x_for_func, _check_clip_x
-)
+from ._optimize import (_prepare_scalar_function, _clip_x_for_func,
+                        _check_clip_x)
 
 
 def _minimize_slsqp(
@@ -326,3 +324,9 @@ def _eval_con_normals(x, cons, la, n, m, meq, mieq):
     a = np.concatenate((a, np.zeros([la, 1])), 1)
 
     return a
+
+
+def _arr_to_scalar(x):
+    # If x is a numpy array, return x.item().  This will
+    # fail if the array has more than one element.
+    return x.item() if isinstance(x, np.ndarray) else x
