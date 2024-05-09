@@ -1,6 +1,10 @@
 # PyLGR
 
-A basic Python implementation of a Legendre-Gauss-Radau (LGR) pseudospectral
+#### Note: this repository is no longer maintained. The [benchmark_ocp](https://github.com/Tenavi/benchmark_ocp) repository contains a regularly updated implementation of this code's functionality.
+
+--------------------------------------------------------------------------------
+
+`pylgr` is a basic Python implementation of a Legendre-Gauss-Radau (LGR) pseudospectral
 (PS) method for infinite horizon computational optimal control. The optimal
 control problem (OCP) is collocated in time at LGR points, turning it into a
 constrained nonlinear programming problem which we solve with sequential least
